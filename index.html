@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset=UTF-8 />
+    <link rel="stylesheet" type="text/css" href="styles.css" />
+  </head>
+  <body>
+    <script type="module">
+      import {
+        Camera,
+        DirectionalLight,
+        AmbientLight,
+        Color,
+        Material,
+        PointLight,
+        WebGLRenderer,
+        Scene,
+        PerspectiveCamera,
+        Texture,
+        SmoothShading,
+        Mesh,
+        BufferGeometry,
+        Geometry,
+        BoxGeometry,
+        MeshBasicMaterial,
+        MeshPhongMaterial,
+        BackSide,
+        Line,
+        TextureLoader,
+        Raycaster,
+        Vector3,
+        Vector2
+      } from 'https://unpkg.com/three@0.120.1/build/three.module.js'
+      import { OrbitControls } from 'https://unpkg.com/three@0.120.1/examples/jsm/controls/OrbitControls.js'
+      import { GLTFLoader } from 'https://unpkg.com/three@0.120.1/examples/jsm/loaders/GLTFLoader.js'
+      import { OBJLoader } from 'https://unpkg.com/three@0.120.1/examples/jsm/loaders/OBJLoader.js'
+
+      let scene, camera, renderer;
+
+      function init() {
+
+        // Create the scene:
+        scene = new Scene();
+        var objects = [];
+
+        camera = new PerspectiveCamera(40,window.innerWidth/window.innerHeight,1,1000000);
+        camera.position.x = 8;
+        camera.position.y = 1;
+        camera.position.z = 10;
+        camera.up.set(0, 0, 1);
+
+        renderer = new WebGLRenderer({antialias:true});
+        renderer.setSize(window.innerWidth,window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+
+        // Add the directional light:
+        const directionalLight = new DirectionalLight(0xffffff,1);
+        directionalLight.position.set(1,0,0);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+
+        // Add the ambient light:
+        const ambientlight = new AmbientLight(0xffffff, 1);
+        scene.add(ambientlight);
+
+        // Load the objects: (This would be modified based on the user input:)
+        let gltf_loader = new GLTFLoader();
+        gltf_loader.load('demos/Osiris_REx.glb', function(gltf){
+          const orex = gltf.scene.children[0];
+          orex.scale.set(1,1,1);
+          scene.add(orex);
+          objects.push(orex);
+        });
+
+        let obj_loader = new OBJLoader();
+        obj_loader.load('demos/Bennu_200k.obj', function(object){
+          object.position.y=-1000;
+          object.scale.x = object.scale.y = object.scale.z = 1000;
+          var mesh = object.children[0];
+
+          mesh.geometry = new Geometry().fromBufferGeometry( mesh.geometry );
+          mesh.geometry.mergeVertices();
+          mesh.geometry.computeVertexNormals();
+          mesh.geometry = new BufferGeometry().fromGeometry( mesh.geometry );
+
+          // Check if no material is assigned, add the default:
+          const material = new MeshPhongMaterial({
+            color: 0x606060, 
+            shininess: 0
+          });
+          object.traverse( function( child ) {
+            if (child.isMesh) child.material = material;
+          });
+
+          scene.add(object);
+          objects.push(object);
+        });
+
+        // Add the skybox:
+        var skyBox = new BoxGeometry(100000, 100000, 100000);
+        const texture_loader = new TextureLoader()
+        var skyBoxMaterial = texture_loader.load('textures/2k_stars_milky_way.jpg')
+        var sky = new Mesh(skyBox, skyBoxMaterial);
+        scene.add(sky);
+        console.log('hello')
+
+        // Define the animation loop:
+        function animate() {
+            controls.update();
+            hoverObjects();
+            renderer.render(scene,camera);
+            window.requestAnimationFrame(animate);
+        }
+
+        // Add interactive controls:
+        const raycaster = new Raycaster();
+        const mouse = new Vector2();
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize( window.innerWidth, window.innerHeight) ;
+        }
+
+        function onMouseMove( event ) {
+            mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+            mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+        }
+
+        function hoverObjects(){
+            raycaster.setFromCamera(mouse, camera)
+            var intersects = raycaster.intersectObject(scene, true);
+            if (intersects.length > 0) { 
+                var obj = intersects[0].object;
+                obj.traverseAncestors( a => {
+                    console.log(a.name);
+                })
+            }
+        }
+
+        window.addEventListener('resize', onWindowResize);
+        window.addEventListener('mousemove', onMouseMove, false);
+
+        // Enter Animation loop:
+        animate();
+      }
+
+      init();
+    </script>
+  </body>
+</html>
